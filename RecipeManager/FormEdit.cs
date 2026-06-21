@@ -47,7 +47,7 @@ namespace RecipeManager
         private void BuildUI()
         {
             this.Text = _isEdit ? "編輯食譜" : "新增食譜";
-            this.Size = new Size(780, 680);
+            this.Size = new Size(780, 800);
             this.MinimumSize = new Size(680, 580);
             this.BackColor = Color.FromArgb(245, 244, 241);
             this.Font = new Font("微軟正黑體", 10f);
@@ -58,7 +58,7 @@ namespace RecipeManager
             var pnlTop = new Panel
             {
                 Dock = DockStyle.Top,
-                Height = 56,
+                Height = 55,
                 BackColor = Color.White
             };
             pnlTop.Paint += (s, e) =>
@@ -70,7 +70,7 @@ namespace RecipeManager
             {
                 Text = "◀",
                 Location = new Point(16, 12),
-                Size = new Size(32, 32),
+                Size = new Size(30, 30),
                 FlatStyle = FlatStyle.Flat,
                 BackColor = Color.White,
                 ForeColor = Color.FromArgb(100, 100, 100),
@@ -94,7 +94,7 @@ namespace RecipeManager
             _pnlBottom = new Panel
             {
                 Dock = DockStyle.Bottom,
-                Height = 58,
+                Height = 50,
                 BackColor = Color.White
             };
             _pnlBottom.Paint += (s, e) =>
@@ -122,22 +122,38 @@ namespace RecipeManager
             // ===== 捲動主體 =====
             _scroll = new Panel
             {
-                Dock = DockStyle.Fill,
+                // 💡 修正 1：不要用 DockStyle.Fill 了，改成 None 讓我們自己控制位置！
+                Dock = DockStyle.None,
                 AutoScroll = true,
                 BackColor = Color.FromArgb(245, 244, 241),
-                Padding = new Padding(24, 20, 24, 20)
+                // 既然主體邊界已經被完全頂開，內部 Padding 恢復正常的安全距離即可
+                Padding = new Padding(24, 20, 24, 20),
+
+                // 💡 修正 2：手動指定起點，剛好接在頂部面板（高度 50）的正下方
+                Location = new Point(0, 50),
+
+                // 💡 修正 3：手動計算寬高
+                // 寬度 = 視窗扣掉左右邊框寬度 (約 16)；高度 = 視窗高度扣掉頂部(50)、底部(50)與上下邊框 (約 40)
+                Size = new Size(this.ClientSize.Width, this.ClientSize.Height - 100)
             };
             var scroll = _scroll;
             this.Controls.Add(scroll);
 
+            // 💡 修正 4：為了防止使用者「拉大或縮小視窗」時高度又跑掉，加上 Anchor 讓它上下左右跟著視窗同步縮放！
+            scroll.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+
+            // 💡 修正 5：保險起見，把底部和頂部面板帶到最上層，確保它們牢牢黏在最外圍
+            _pnlBottom.BringToFront();
+            pnlTop.BringToFront();
+
             int cardW = 700, cx = 0;
 
             // ---- 基本資訊卡 ----
-            var cardBasic = MakeCard(cx, 0, cardW, 220, "基本資訊");
+            var cardBasic = MakeCard(cx, 15, cardW, 220, "基本資訊");
             cardBasic.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             scroll.Controls.Add(cardBasic);
 
-            txtName = MakeTextBox(cardBasic, "料理名稱 *", 12, 44, cardW - 30, 34);
+            txtName = MakeTextBox(cardBasic, "料理名稱", 12, 65, cardW - 30, 34);
 
             var lblC = MakeLabel(cardBasic, "料理類型", 12, 98);
             cboCuisine = MakeCombo(cardBasic, new[] { "中式料理", "西式料理", "其他" }, 12, 118, 220);
@@ -169,7 +185,7 @@ namespace RecipeManager
             cardBasic.Controls.Add(txtServings);
 
             // ---- 食材卡 ----
-            var cardIng = MakeCard(cx, 236, cardW, 260, "食材清單");
+            var cardIng = MakeCard(cx, 250, cardW, 265, "食材清單"); // 固定高度 265
             cardIng.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             scroll.Controls.Add(cardIng);
 
@@ -181,13 +197,14 @@ namespace RecipeManager
             pnlIngredients = new Panel
             {
                 Location = new Point(12, 66),
-                Size = new Size(cardW - 30, 150),
+                Size = new Size(cardW - 30, 150), // 嚴格卡死高度 150 不准自己長高
                 BackColor = Color.Transparent,
-                AutoScroll = false
+                AutoScroll = true // 💡 保持開啟，現在它終於能派上用場了！
             };
             cardIng.Controls.Add(pnlIngredients);
 
-            var btnAddIng = CreateBtn("＋ 新增食材", 12, 222, 130, 30);
+            // 💡 修正按鈕 Y 座標為 225，這是在 card 內部（高265）最安全的精準位置
+            var btnAddIng = CreateBtn("＋ 新增食材", 12, 225, 130, 30);
             btnAddIng.FlatAppearance.BorderColor = Color.FromArgb(150, 150, 150);
             btnAddIng.Font = new Font("微軟正黑體", 9.5f);
             btnAddIng.Click += (s, e) => AddIngredientRow("", "");
@@ -197,12 +214,12 @@ namespace RecipeManager
             AddIngredientRow("", "");
 
             // ---- 評分卡 ----
-            var cardRating = MakeCard(cx, 512, 340, 150, "評分與狀態");
+            var cardRating = MakeCard(cx, 525, 340, 160, "評分與狀態"); // 修正：Y 從 512 移到 540，高度改 160 容納核取方塊
             cardRating.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             scroll.Controls.Add(cardRating);
 
             MakeLabel(cardRating, "我的評分", 12, 44);
-            var starPanel = new Panel { Location = new Point(12, 64), Size = new Size(260, 36), BackColor = Color.Transparent };
+            var starPanel = new Panel { Location = new Point(12, 64), Size = new Size(240, 36), BackColor = Color.Transparent };
             cardRating.Controls.Add(starPanel);
 
             for (int i = 0; i < 5; i++)
@@ -211,8 +228,8 @@ namespace RecipeManager
                 var star = new Button
                 {
                     Text = "★",
-                    Location = new Point(i * 48, 0),
-                    Size = new Size(44, 36),
+                    Location = new Point(i * 44, 0), // 修正：間距微調為 44，防止星星擠出 panel 邊界
+                    Size = new Size(40, 36),
                     FlatStyle = FlatStyle.Flat,
                     BackColor = Color.Transparent,
                     ForeColor = Color.FromArgb(200, 200, 200),
@@ -232,7 +249,7 @@ namespace RecipeManager
                 AutoSize = true,
                 Font = new Font("微軟正黑體", 11f, FontStyle.Bold),
                 ForeColor = Color.FromArgb(40, 40, 40),
-                Location = new Point(252, 68)
+                Location = new Point(240, 68) // 修正：位置微調配合星星面板
             };
             cardRating.Controls.Add(lblRatingVal);
 
@@ -242,19 +259,19 @@ namespace RecipeManager
                 AutoSize = true,
                 Font = new Font("微軟正黑體", 10f),
                 ForeColor = Color.FromArgb(40, 40, 40),
-                Location = new Point(12, 112)
+                Location = new Point(12, 115) // 修正：稍微下移防重疊
             };
             cardRating.Controls.Add(chkIsMade);
 
             // ---- 備註卡 ----
-            var cardNote = MakeCard(340 + 16, 512, cardW - 340 - 16, 150, "備註");
+            var cardNote = MakeCard(340 + 16, 525, cardW - 340 - 16, 160, "備註"); // 修正：Y 配合評分卡改為 540，高度同步改為 160
             cardNote.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             scroll.Controls.Add(cardNote);
 
             txtNote = new TextBox
             {
                 Location = new Point(12, 44),
-                Size = new Size(cardNote.Width - 30, 90),
+                Size = new Size(cardNote.Width - 30, 100), // 修正：高度調到 100 完整利用空間
                 Font = new Font("微軟正黑體", 10f),
                 BorderStyle = BorderStyle.FixedSingle,
                 Multiline = true,
@@ -264,15 +281,15 @@ namespace RecipeManager
             cardNote.Controls.Add(txtNote);
 
             // ---- 步驟卡 ----
-            var cardSteps = MakeCard(cx, 678, cardW, 220, "烹飪步驟");
+            var cardSteps = MakeCard(cx, 700, cardW, 250, "烹飪步驟"); // 修正：Y 從 678 下移到 715，完美避開上方並排的兩張卡片
             cardSteps.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             scroll.Controls.Add(cardSteps);
 
             txtSteps = new TextBox
             {
                 Location = new Point(12, 44),
-                Size = new Size(cardW - 30, 158),
-                Font = new Font("微軟正黑體", 10f),
+                Size = new Size(cardW - 30, 195),
+                Font = new Font("微軟正head體", 10f),
                 BorderStyle = BorderStyle.FixedSingle,
                 Multiline = true,
                 ScrollBars = ScrollBars.Vertical,
@@ -280,24 +297,24 @@ namespace RecipeManager
             };
             cardSteps.Controls.Add(txtSteps);
 
+            
             pnlBottom.BringToFront();
             pnlTop.BringToFront();
         }
 
         private void AddIngredientRow(string name, string amount)
         {
-            int y = (pnlIngredients.Controls.Count / 1) * 36;
-            if (y + 34 > pnlIngredients.Height)
-            {
-                pnlIngredients.Height = y + 40;
-                var card = pnlIngredients.Parent as Panel;
-                if (card != null) card.Height = card.Height + 36;
-            }
+            // 1. 動態計算下一列的 Y 座標
+            int y = pnlIngredients.Controls.Count * 36;
+
+            // 💡【關鍵修正】：直接刪除原本會讓 pnlIngredients 和 card 長高的 if 區塊！
+            // 讓 pnlIngredients 的高度死死固定在原來的 150 像素，超出時它才會被迫彈出垂直滾動軸。
 
             var row = new Panel
             {
                 Location = new Point(0, y),
-                Size = new Size(pnlIngredients.Width, 32),
+                // 💡 修正寬度：pnlIngredients.Width - 25，幫右側滾動軸留下 VIP 空位，防止長出難看的水平滾動條
+                Size = new Size(pnlIngredients.Width - 25, 32),
                 BackColor = Color.Transparent,
                 Tag = "row"
             };
@@ -315,7 +332,7 @@ namespace RecipeManager
             var txtIAmt = new TextBox
             {
                 Location = new Point(328, 0),
-                Size = new Size(150, 30),
+                Size = new Size(130, 30), // 💡 微調寬度 150 -> 130，避免擠到刪除按鈕
                 Font = new Font("微軟正黑體", 10f),
                 BorderStyle = BorderStyle.FixedSingle,
                 Text = amount
@@ -325,7 +342,7 @@ namespace RecipeManager
             var btnDel = new Button
             {
                 Text = "✕",
-                Location = new Point(486, 0),
+                Location = new Point(466, 0), // 💡 座標微調配合用量輸入框
                 Size = new Size(30, 30),
                 FlatStyle = FlatStyle.Flat,
                 BackColor = Color.White,
@@ -342,6 +359,10 @@ namespace RecipeManager
             row.Controls.Add(btnDel);
 
             pnlIngredients.Controls.Add(row);
+
+            // 💡 通知排版引擎有新元件加入，並自動把最新的食材列捲動到視線內！
+            pnlIngredients.PerformLayout();
+            pnlIngredients.ScrollControlIntoView(row);
         }
 
         private void ReorderIngRows()
