@@ -17,7 +17,10 @@ namespace RecipeManager
 
         private void BuildUI()
         {
-            this.Text = "食譜詳細";
+            // 清理機制優化：清除舊控制項以供編輯後安全重繪
+            this.Controls.Clear();
+
+            this.Text = "詳細食譜";
             this.Size = new Size(760, 680);
             this.MinimumSize = new Size(660, 560);
             this.BackColor = Color.FromArgb(245, 244, 241);
@@ -34,7 +37,6 @@ namespace RecipeManager
             pnlTop.Paint += (s, e) =>
                 e.Graphics.DrawLine(new Pen(Color.FromArgb(30, 0, 0, 0)),
                     0, pnlTop.Height - 1, pnlTop.Width, pnlTop.Height - 1);
-            this.Controls.Add(pnlTop);
 
             var btnBack = new Button
             {
@@ -70,8 +72,7 @@ namespace RecipeManager
                 if (form.ShowDialog() == DialogResult.OK)
                 {
                     _recipe = DBHelper.GetRecipeByID(_recipe.RecipeID);
-                    this.Controls.Clear();
-                    BuildUI();
+                    BuildUI(); // 重新整理乾淨的 UI
                 }
             };
             pnlTop.Controls.Add(btnEdit);
@@ -93,7 +94,7 @@ namespace RecipeManager
 
             pnlTop.Resize += (s, e) =>
             {
-                btnDel.Location  = new Point(pnlTop.Width - 16 - 86, 12);
+                btnDel.Location = new Point(pnlTop.Width - 16 - 86, 12);
                 btnEdit.Location = new Point(pnlTop.Width - 16 - 86 - 96, 12);
             };
 
@@ -107,7 +108,6 @@ namespace RecipeManager
             pnlHero.Paint += (s, e) =>
                 e.Graphics.DrawLine(new Pen(Color.FromArgb(30, 0, 0, 0)),
                     0, pnlHero.Height - 1, pnlHero.Width, pnlHero.Height - 1);
-            this.Controls.Add(pnlHero);
 
             pnlHero.Controls.Add(new Label
             {
@@ -133,15 +133,11 @@ namespace RecipeManager
             // Stat Cards
             int sx = 24;
             int sy = 82;
-            int sw = 150, sh = 46;
-            AddStatCard(pnlHero, sx, sy, sw, sh, "烹飪時間",
-                _recipe.CookTime > 0 ? _recipe.CookTime + " 分鐘" : "—"); sx += sw + 10;
-            AddStatCard(pnlHero, sx, sy, sw, sh, "份量",
-                _recipe.Servings > 0 ? _recipe.Servings + " 人份" : "—"); sx += sw + 10;
-            AddStatCard(pnlHero, sx, sy, sw, sh, "難度",
-                string.IsNullOrEmpty(_recipe.Difficulty) ? "—" : _recipe.Difficulty); sx += sw + 10;
-            AddStatCard(pnlHero, sx, sy, sw, sh, "評分",
-                _recipe.Rating > 0 ? "★ " + _recipe.Rating + " / 10" : "—");
+            int sw = 140, sh = 46;
+            AddStatCard(pnlHero, sx, sy, sw, sh, "烹飪時間", _recipe.CookTime > 0 ? _recipe.CookTime + " 分鐘" : "—"); sx += sw + 10;
+            AddStatCard(pnlHero, sx, sy, sw, sh, "份量", _recipe.Servings > 0 ? _recipe.Servings + " 人份" : "—"); sx += sw + 10;
+            AddStatCard(pnlHero, sx, sy, sw, sh, "難度", string.IsNullOrEmpty(_recipe.Difficulty) ? "—" : _recipe.Difficulty); sx += sw + 10;
+            AddStatCard(pnlHero, sx, sy, sw, sh, "評分", _recipe.Rating > 0 ? "★ " + _recipe.Rating + " / 10" : "—");
 
             // ===== 捲動主體 =====
             var scroll = new Panel
@@ -149,13 +145,17 @@ namespace RecipeManager
                 Dock = DockStyle.Fill,
                 AutoScroll = true,
                 BackColor = Color.FromArgb(245, 244, 241),
-                Padding = new Padding(24, 20, 24, 20)
+                Padding = new Padding(24, 20, 24, 40)
             };
+
+            // 控制項加入先後順序（防 Fill 重疊遮擋）
             this.Controls.Add(scroll);
+            this.Controls.Add(pnlHero);
+            this.Controls.Add(pnlTop);
 
-            int cardW = 680;
+            int cardW = 690;
 
-            // ---- 食材 + 評分/備註 並排 ----
+            // ---- 食材清單卡（左側固定寬度） ----
             var cardIng = MakeCard(scroll, 0, 0, 320, 0, "食材清單");
             int iy = 44;
             foreach (var ing in _recipe.Ingredients)
@@ -192,41 +192,21 @@ namespace RecipeManager
                     AutoSize = true,
                     Font = new Font("微軟正黑體", 10f),
                     ForeColor = Color.FromArgb(120, 120, 120),
-                    Location = new Point(280, 6)
+                    Location = new Point(220, 6)
                 });
                 cardIng.Controls.Add(row);
                 iy += 32;
             }
-            cardIng.Height = Math.Max(iy + 16, 120);
+            cardIng.Height = Math.Max(iy + 16, 140);
 
-            // 評分卡
+            // 💡【排版調整修正核心】：移除大評分卡，讓右側只放備註卡並徹底置頂
             int rightX = 320 + 16;
-            var cardRating = MakeCard(scroll, rightX, 0, cardW - 320 - 16, 120, "評分");
-            string stars = "";
-            for (int i = 0; i < 5; i++)
-                stars += ((i + 1) * 2 <= _recipe.Rating) ? "★" : "☆";
-            cardRating.Controls.Add(new Label
-            {
-                Text = stars,
-                AutoSize = true,
-                Font = new Font("微軟正黑體", 20f),
-                ForeColor = Color.FromArgb(186, 117, 23),
-                Location = new Point(12, 44)
-            });
-            cardRating.Controls.Add(new Label
-            {
-                Text = _recipe.Rating > 0 ? _recipe.Rating + " / 10" : "尚未評分",
-                AutoSize = true,
-                Font = new Font("微軟正黑體", 13f, FontStyle.Bold),
-                ForeColor = Color.FromArgb(30, 30, 30),
-                Location = new Point(12, 82)
-            });
+            int noteY = 0; // 起點重置為 0，與左側食材清單水平對齊
 
-            // 備註卡
-            int noteY = 136;
             if (!string.IsNullOrEmpty(_recipe.Note))
             {
                 var cardNote = MakeCard(scroll, rightX, noteY, cardW - 320 - 16, 0, "備註");
+                cardNote.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right; // 支援拉寬縮放
                 var lblNote = new Label
                 {
                     Text = _recipe.Note,
@@ -242,10 +222,13 @@ namespace RecipeManager
             }
 
             // ---- 步驟卡 ----
-            int stepsTop = Math.Max(cardIng.Height + 16, noteY);
+            // 步驟卡頂部自動緊貼在「食材卡高」或「備註卡高」中最長的那一側下方
+            int stepsTop = Math.Max(cardIng.Height + 20, noteY);
             var cardSteps = MakeCard(scroll, 0, stepsTop, cardW, 0, "烹飪步驟");
+            cardSteps.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+
             int stepY = 44;
-            var lines = _recipe.Steps?.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries) ?? new string[0];
+            var lines = _recipe.Steps?.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries) ?? new string[0];
             int stepNum = 1;
             foreach (var line in lines)
             {
@@ -287,13 +270,14 @@ namespace RecipeManager
 
                 var sepLine = new Panel
                 {
-                    Location = new Point(12, stepY + stepLbl.Height + 8),
+                    Location = new Point(12, stepY + stepLbl.Height + 10),
                     Size = new Size(cardW - 30, 1),
-                    BackColor = Color.FromArgb(15, 0, 0, 0)
+                    BackColor = Color.FromArgb(15, 0, 0, 0),
+                    Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
                 };
                 cardSteps.Controls.Add(sepLine);
 
-                stepY += stepLbl.Height + 24;
+                stepY += stepLbl.Height + 26;
                 stepNum++;
             }
             if (lines.Length == 0)
@@ -309,9 +293,6 @@ namespace RecipeManager
                 stepY = 80;
             }
             cardSteps.Height = stepY + 16;
-
-            pnlHero.BringToFront();
-            pnlTop.BringToFront();
         }
 
         private int AddBadge(Panel parent, string text, int x, int y, Color bg, Color fg)
@@ -350,7 +331,7 @@ namespace RecipeManager
             {
                 Text = value,
                 AutoSize = true,
-                Font = new Font("微軟正黑體", 12f, FontStyle.Bold),
+                Font = new Font("微軟正黑體", 11f, FontStyle.Bold),
                 ForeColor = Color.FromArgb(30, 30, 30),
                 Location = new Point(10, 22)
             });
@@ -378,12 +359,16 @@ namespace RecipeManager
                 ForeColor = Color.FromArgb(120, 120, 120),
                 Location = new Point(12, 14)
             });
-            card.Controls.Add(new Panel
+
+            var line = new Panel
             {
                 Location = new Point(0, 36),
                 Size = new Size(w, 1),
-                BackColor = Color.FromArgb(20, 0, 0, 0)
-            });
+                BackColor = Color.FromArgb(20, 0, 0, 0),
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
+            };
+            card.Controls.Add(line);
+
             parent.Controls.Add(card);
             return card;
         }

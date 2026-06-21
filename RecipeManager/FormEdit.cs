@@ -210,6 +210,9 @@ namespace RecipeManager
             btnAddIng.Click += (s, e) => AddIngredientRow("", "");
             cardIng.Controls.Add(btnAddIng);
 
+            pnlIngredients.CreateControl();
+            pnlIngredients.Controls.Clear();
+
             AddIngredientRow("", "");
             AddIngredientRow("", "");
 
@@ -249,7 +252,7 @@ namespace RecipeManager
                 AutoSize = true,
                 Font = new Font("微軟正黑體", 11f, FontStyle.Bold),
                 ForeColor = Color.FromArgb(40, 40, 40),
-                Location = new Point(240, 68) // 修正：位置微調配合星星面板
+                Location = new Point(250, 73) // 修正：位置微調配合星星面板
             };
             cardRating.Controls.Add(lblRatingVal);
 
@@ -304,16 +307,17 @@ namespace RecipeManager
 
         private void AddIngredientRow(string name, string amount)
         {
-            // 1. 動態計算下一列的 Y 座標
-            int y = pnlIngredients.Controls.Count * 36;
+            // 💡 修正 1：計算新列位置前，先記錄目前的捲動位置，並將其暫時歸零
+            // 這樣排版引擎算出來的 Y 座標才不會被捲軸偷偷挪移！
+            Point currentScroll = pnlIngredients.AutoScrollPosition;
+            pnlIngredients.AutoScrollPosition = new Point(0, 0);
 
-            // 💡【關鍵修正】：直接刪除原本會讓 pnlIngredients 和 card 長高的 if 區塊！
-            // 讓 pnlIngredients 的高度死死固定在原來的 150 像素，超出時它才會被迫彈出垂直滾動軸。
+            // 2. 現在可以安心計算正確的 Y 軸位置了
+            int y = pnlIngredients.Controls.Count * 36;
 
             var row = new Panel
             {
                 Location = new Point(0, y),
-                // 💡 修正寬度：pnlIngredients.Width - 25，幫右側滾動軸留下 VIP 空位，防止長出難看的水平滾動條
                 Size = new Size(pnlIngredients.Width - 25, 32),
                 BackColor = Color.Transparent,
                 Tag = "row"
@@ -332,7 +336,7 @@ namespace RecipeManager
             var txtIAmt = new TextBox
             {
                 Location = new Point(328, 0),
-                Size = new Size(130, 30), // 💡 微調寬度 150 -> 130，避免擠到刪除按鈕
+                Size = new Size(130, 30),
                 Font = new Font("微軟正黑體", 10f),
                 BorderStyle = BorderStyle.FixedSingle,
                 Text = amount
@@ -342,7 +346,7 @@ namespace RecipeManager
             var btnDel = new Button
             {
                 Text = "✕",
-                Location = new Point(466, 0), // 💡 座標微調配合用量輸入框
+                Location = new Point(466, 0),
                 Size = new Size(30, 30),
                 FlatStyle = FlatStyle.Flat,
                 BackColor = Color.White,
@@ -360,7 +364,7 @@ namespace RecipeManager
 
             pnlIngredients.Controls.Add(row);
 
-            // 💡 通知排版引擎有新元件加入，並自動把最新的食材列捲動到視線內！
+            // 💡 修正 2：排版完成後，恢復原先的捲動位置，並自動聚焦到最新一列
             pnlIngredients.PerformLayout();
             pnlIngredients.ScrollControlIntoView(row);
         }
