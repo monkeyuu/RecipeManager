@@ -30,6 +30,7 @@ namespace RecipeManager
 
     public static class DBHelper
     {
+        public const int PlaceholderID = 2147483647;
         public static string LastError { get; private set; } = "";
 
         private static readonly string ConnStr =
@@ -97,7 +98,7 @@ namespace RecipeManager
                         {
                             list.Add(new RecipeItem
                             {
-                                RecipeID = dr.GetInt32(0),
+                                RecipeID = Convert.ToInt32(dr["RecipeID"]),
                                 Name = dr["Name"].ToString().Trim(),
                                 CuisineType = dr["CuisineType"].ToString().Trim(),
                                 MealType = dr["MealType"].ToString().Trim(),
@@ -131,7 +132,7 @@ namespace RecipeManager
                         {
                             recipe = new RecipeItem
                             {
-                                RecipeID = dr.GetInt32(0),
+                                RecipeID = Convert.ToInt32(dr["RecipeID"]),
                                 Name = dr["Name"].ToString().Trim(),
                                 CuisineType = dr["CuisineType"].ToString().Trim(),
                                 MealType = dr["MealType"].ToString().Trim(),

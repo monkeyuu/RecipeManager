@@ -298,30 +298,74 @@ namespace RecipeManager
 
         private void LoadRecipes()
         {
-            var list = DBHelper.GetRecipes(
-                txtSearch?.Text ?? "",
-                _filterCuisine, _filterMeal,
-                _filterDifficulty, _filterCookTime, _filterIsMade);
+            // 1. 解除事件繫結，避免干擾
+            dgv.SelectionChanged -= Dgv_SelectionChanged;
 
-            dgv.Rows.Clear();
-            foreach (var r in list)
+            try
             {
-                int idx = dgv.Rows.Add();
-                var row = dgv.Rows[idx];
-                row.Cells["RecipeID"].Value  = r.RecipeID;
-                row.Cells["Name"].Value       = r.Name;
-                row.Cells["CuisineType"].Value = r.CuisineType;
-                row.Cells["MealType"].Value    = r.MealType;
-                row.Cells["Difficulty"].Value  = r.Difficulty;
-                row.Cells["CookTime"].Value    = r.CookTime > 0 ? r.CookTime + " 分鐘" : "—";
-                row.Cells["Rating"].Value      = r.Rating > 0 ? "★ " + r.Rating + " / 10" : "—";
-                row.Cells["IsMade"].Value      = r.IsMade ? "✓ 做過" : "— 未做過";
-            }
-            if (dgv.RowCount > 0)
-                dgv.FirstDisplayedScrollingRowIndex = 0;
+                var list = DBHelper.GetRecipes(
+                    txtSearch?.Text ?? "",
+                    _filterCuisine, _filterMeal,
+                    _filterDifficulty, _filterCookTime, _filterIsMade);
 
-            if (lblCount != null)
-                lblCount.Text = $"共 {list.Count} 道食譜";
+                // 2. 不要用手動 dgv.Rows.Add() 了！
+                // 我們建立一個符合 DataGridView 顯示格式的 DataTable
+                DataTable dt = new DataTable();
+                dt.Columns.Add("RecipeID", typeof(int));
+                dt.Columns.Add("Name", typeof(string));
+                dt.Columns.Add("CuisineType", typeof(string));
+                dt.Columns.Add("MealType", typeof(string));
+                dt.Columns.Add("Difficulty", typeof(string));
+                dt.Columns.Add("CookTime", typeof(string));
+                dt.Columns.Add("Rating", typeof(string));
+                dt.Columns.Add("IsMade", typeof(string));
+
+                // 3. 先插入一列隱形佔位列（純程式碼，不存入資料庫）
+                dt.Rows.Add(DBHelper.PlaceholderID, "", "", "", "", "", "", "");
+
+                // 4. 把撈出來的 list 資料塞進 DataTable（真實食譜從第1列開始，全部可見）
+                foreach (var r in list)
+                {
+                    dt.Rows.Add(
+                        r.RecipeID,
+                        r.Name,
+                        r.CuisineType,
+                        r.MealType,
+                        r.Difficulty,
+                        r.CookTime > 0 ? r.CookTime + " 分鐘" : "—",
+                        r.Rating > 0 ? "★ " + r.Rating + " / 10" : "—",
+                        r.IsMade ? "✓ 做過" : "— 未做過"
+                    );
+                }
+
+                // 5. 重要步驟：將 DataGridView 的各個 Column 的 DataPropertyName 與 DataTable 的欄位名稱綁定
+                dgv.Columns["RecipeID"].DataPropertyName = "RecipeID";
+                dgv.Columns["Name"].DataPropertyName = "Name";
+                dgv.Columns["CuisineType"].DataPropertyName = "CuisineType";
+                dgv.Columns["MealType"].DataPropertyName = "MealType";
+                dgv.Columns["Difficulty"].DataPropertyName = "Difficulty";
+                dgv.Columns["CookTime"].DataPropertyName = "CookTime";
+                dgv.Columns["Rating"].DataPropertyName = "Rating";
+                dgv.Columns["IsMade"].DataPropertyName = "IsMade";
+
+                // 5. 直接將 DataTable 給予 DataSource，讓系統自動完美繪製
+                dgv.DataSource = dt;
+
+                // 6. 清除預設選取
+                dgv.ClearSelection();
+
+                if (lblCount != null)
+                    lblCount.Text = $"共 {list.Count} 道食譜";
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("載入食譜失敗: " + ex.Message);
+            }
+            finally
+            {
+                // 7. 恢復事件繫結
+                dgv.SelectionChanged += Dgv_SelectionChanged;
+            }
 
             _selectedRecipeID = -1;
             UpdateButtonState();
@@ -332,7 +376,8 @@ namespace RecipeManager
             if (dgv.SelectedRows.Count > 0)
             {
                 var val = dgv.SelectedRows[0].Cells["RecipeID"].Value;
-                _selectedRecipeID = (val != null) ? (int)val : -1;
+                int id = (val != null) ? (int)val : -1;
+                _selectedRecipeID = (id == DBHelper.PlaceholderID) ? -1 : id;
             }
             else
                 _selectedRecipeID = -1;
@@ -344,13 +389,15 @@ namespace RecipeManager
             if (e.RowIndex < 0) return;
             var val = dgv.Rows[e.RowIndex].Cells["RecipeID"].Value;
             if (val == null) return;
-            _selectedRecipeID = (int)val;
+            int id = (int)val;
+            if (id == DBHelper.PlaceholderID) return;
+            _selectedRecipeID = id;
             OpenDetail();
         }
 
-private void UpdateButtonState()
+        private void UpdateButtonState()
         {
-            bool sel = _selectedRecipeID > 0;
+            bool sel = _selectedRecipeID > 0 && _selectedRecipeID != DBHelper.PlaceholderID;
             btnEdit.Enabled   = sel;
             btnDelete.Enabled = sel;
         }
